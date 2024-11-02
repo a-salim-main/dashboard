@@ -9,13 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { NichePrompts } from "@/lib/supabase";
 import { unescapeString, escapeString } from "@/lib/utils";
 import { PromptEditor } from "@/components/prompt-editor";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 
-type FieldGroupKey = "Optin No Book" | "Database Reactivation" | "Appointments" | "No Show" | "Inbound" | "Call Later" | "After Hours" | "Other";
+export type FieldGroupKey = "Optin No Book" | "Database Reactivation" | "Appointments" | "No Show" | "Inbound" | "Call Later" | "After Hours" | "Other";
 
 // Define a type for the field names to ensure they match NichePrompts
-type PromptFields = keyof Omit<NichePrompts, "Niche Name">;
+export type PromptFields = keyof Omit<NichePrompts, "Niche Name">;
 
-const FIELD_GROUPS: Record<Exclude<FieldGroupKey, "Other">, readonly PromptFields[]> = {
+export const FIELD_GROUPS: Record<Exclude<FieldGroupKey, "Other">, readonly PromptFields[]> = {
   "Optin No Book": [
     "Onb_Identity",
     "Onb_Task",
@@ -88,10 +91,13 @@ interface PromptsSectionProps {
   onUpdate: (field: keyof NichePrompts, value: string) => void;
   onReset: (field: keyof NichePrompts) => void;
   modifiedFields: Set<string>;
+  niches: Record<string, NichePrompts>;
+  onApply: (selectedFields: Array<{ niche: string; field: keyof NichePrompts; value: string }>) => void;
 }
 
-export function PromptsSection({ data, originalData, onUpdate, onReset, modifiedFields }: PromptsSectionProps) {
+export function PromptsSection({ data, originalData, onUpdate, onReset, modifiedFields, niches, onApply }: PromptsSectionProps) {
   const [selectedGroup, setSelectedGroup] = useState<FieldGroupKey>("Optin No Book");
+  const { toast } = useToast();
 
   if (!data || !originalData) return null;
 
@@ -151,6 +157,50 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
     [groupChanges]
   );
 
+  console.log('PromptsSection niches:', { niches });
+
+  const handleResetNiche = () => {
+    // Get all modified fields for the current niche, regardless of group
+    const fieldsToReset = Array.from(modifiedFields);
+    
+    console.log('Resetting fields:', fieldsToReset); // Debug log
+    
+    // Reset each modified field, regardless of which group it's in
+    fieldsToReset.forEach(field => {
+      if (field !== "Niche Name") {
+        onReset(field as keyof NichePrompts);
+      }
+    });
+
+    // Force a re-render of the group changes
+    const updatedGroupChanges = { ...groupChanges };
+    Object.keys(updatedGroupChanges).forEach(group => {
+      updatedGroupChanges[group] = 0;
+    });
+
+    toast({
+      description: `Reset ${fieldsToReset.length} field${fieldsToReset.length === 1 ? '' : 's'} in current niche`,
+    });
+  };
+
+  const handleSaveNiche = () => {
+    if (!data) return;
+
+    // Get all modified fields
+    const modifiedFieldsList = Array.from(modifiedFields);
+    
+    // Create updates only for modified fields
+    const updates: Array<{ niche: string; field: keyof NichePrompts; value: string }> = 
+      modifiedFieldsList.map(field => ({
+        niche: data["Niche Name"] as string,
+        field: field as keyof NichePrompts,
+        value: data[field as keyof NichePrompts] as string
+      }));
+
+    // Call onApply with the updates
+    onApply(updates);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-gradient-to-r from-background to-muted p-4 rounded-lg border border-border/50 shadow-sm">
@@ -164,35 +214,56 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
             </p>
           </div>
           {totalChanges > 0 && (
-            <span className="text-sm px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300">
+            <span className="text-sm px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 animate-in-fast">
               {totalChanges} modified field{totalChanges === 1 ? '' : 's'}
             </span>
           )}
         </div>
-        <Select 
-          value={selectedGroup} 
-          onValueChange={(value) => setSelectedGroup(value as FieldGroupKey)}
-        >
-          <SelectTrigger className="w-[200px] bg-card border-border text-foreground">
-            <SelectValue placeholder="Select group" />
-          </SelectTrigger>
-          <SelectContent className="bg-card border-border">
-            {availableGroupNames.map((group) => (
-              <SelectItem 
-                key={group} 
-                value={group}
-                className="text-foreground hover:bg-muted focus:bg-muted flex justify-between items-center"
+        <div className="flex items-center gap-4">
+          {totalChanges > 0 && (
+            <div className="flex gap-2 animate-in-fast">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetNiche}
+                className="text-orange-600 hover:text-orange-700"
               >
-                <span>{group}</span>
-                {groupChanges[group] > 0 && (
-                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300">
-                    {groupChanges[group]}
-                  </span>
-                )}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+                Reset Niche
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveNiche}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Save Niche
+              </Button>
+            </div>
+          )}
+          <Select 
+            value={selectedGroup} 
+            onValueChange={(value) => setSelectedGroup(value as FieldGroupKey)}
+          >
+            <SelectTrigger className="w-[200px] bg-card border-border text-foreground">
+              <SelectValue placeholder="Select group" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              {availableGroupNames.map((group) => (
+                <SelectItem 
+                  key={group} 
+                  value={group}
+                  className="text-foreground hover:bg-muted focus:bg-muted flex justify-between items-center"
+                >
+                  <span>{group}</span>
+                  {groupChanges[group] > 0 && (
+                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 animate-in-fast">
+                      {groupChanges[group]}
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid gap-6">
@@ -207,9 +278,16 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
               onChange={(value) => onUpdate(field as keyof NichePrompts, value)}
               onReset={() => onReset?.(field as keyof NichePrompts)}
               hasChanged={modifiedFields.has(field)}
+              niches={niches}
+              onApply={onApply}
             />
           ))}
       </div>
     </div>
   );
+}
+
+export function getUnassignedFields(allFields: PromptFields[]): PromptFields[] {
+  const assignedFields = new Set(Object.values(FIELD_GROUPS).flat());
+  return allFields.filter(field => !assignedFields.has(field));
 }

@@ -59,7 +59,43 @@
   }
 }
 
+@layer utilities {
+  .animate-in-fast {
+    animation: enter 0.2s ease-out;
+  }
+
+  .animate-in {
+    animation: enter 0.3s ease-out;
+  }
+
+  .animate-out {
+    animation: exit 0.2s ease-in;
+  }
+
+  @keyframes enter {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes exit {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+}
+
 /* Add smooth transitions */
 * {
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }

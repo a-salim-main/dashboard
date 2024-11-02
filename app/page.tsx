@@ -72,6 +72,7 @@ export default function Home() {
         ...prev,
         [selectedNiche]: nichePrompts
       }));
+      promptStore.setOriginalData(selectedNiche, nichePrompts);
     }
   }, [selectedNiche, nichePrompts]);
 
@@ -121,14 +122,23 @@ export default function Home() {
 
   const handleReset = (field?: keyof NichePrompts) => {
     if (!selectedNiche || !nichePrompts) return;
+
     if (field) {
       // Reset single field
-      handlePromptUpdate(field, nichePrompts[field] || '');
+      const originalValue = nichePrompts[field];
+      promptStore.resetField(selectedNiche, field);
+      setLocalPrompts(prev => ({
+        ...prev!,
+        [field]: originalValue
+      }));
     } else {
-      // Reset all fields
-      setLocalPrompts(nichePrompts);
+      // Reset all fields for current niche
       promptStore.clearChanges(selectedNiche);
+      setLocalPrompts(nichePrompts); // Reset to original data
     }
+
+    // Force a refresh of the UI
+    queryClient.invalidateQueries({ queryKey: ['niche', selectedNiche] });
   };
 
   // Track loading state for all niches data
@@ -258,6 +268,31 @@ export default function Home() {
     return loadedNiches[nicheName] || null;
   };
 
+  useEffect(() => {
+    console.log('Loaded niches:', {
+      count: Object.keys(loadedNiches).length,
+      niches: Object.keys(loadedNiches),
+      data: loadedNiches
+    });
+  }, [loadedNiches]);
+
+  const handleResetAll = () => {
+    // Reset all niches in the store
+    promptStore.clearChanges();
+    
+    // Reset current niche's local state if any
+    if (selectedNiche && nichePrompts) {
+      setLocalPrompts(nichePrompts);
+    }
+    
+    // Force a refresh of all niche data
+    queryClient.invalidateQueries({ queryKey: ['niche'] });
+    
+    toast({
+      description: "Reset all changes across all niches",
+    });
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/50">
       <div className="container mx-auto px-4 py-8">
@@ -307,7 +342,7 @@ export default function Home() {
               />
               <Button
                 variant="outline"
-                onClick={() => handleReset()}
+                onClick={handleResetAll}
                 disabled={Object.keys(promptStore.pendingChanges).length === 0}
                 className="text-foreground"
               >
@@ -372,23 +407,57 @@ export default function Home() {
           </Card>
 
           {/* Main Content */}
-          <Card className="lg:col-span-9 p-6">
+          <Card className="lg:col-span-9 p-6 transition-all duration-200">
             {selectedNiche ? (
               isLoadingPrompts ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12 animate-in">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : localPrompts ? (
-                <PromptsSection
-                  data={localPrompts}
-                  originalData={nichePrompts || null}
-                  onUpdate={handlePromptUpdate}
-                  onReset={handleReset}
-                  modifiedFields={new Set(promptStore.getModifiedFields(selectedNiche))}
-                />
+                <div className="animate-in">
+                  <PromptsSection
+                    data={localPrompts}
+                    originalData={nichePrompts || null}
+                    onUpdate={handlePromptUpdate}
+                    onReset={handleReset}
+                    modifiedFields={new Set(promptStore.getModifiedFields(selectedNiche))}
+                    niches={loadedNiches}
+                    onApply={(selectedFields: Array<{ niche: string; field: keyof NichePrompts; value: string }>) => {
+                      // Create a batch of updates
+                      const updates: Record<string, NichePrompts> = {};
+                      
+                      selectedFields.forEach(({ niche, field, value }) => {
+                        if (!updates[niche]) {
+                          // Initialize with existing niche data
+                          updates[niche] = { ...loadedNiches[niche] };
+                        }
+                        // Update the specific field
+                        updates[niche] = {
+                          ...updates[niche],
+                          [field]: value
+                        };
+                      });
+
+                      // Apply all updates using promptStore
+                      promptStore.batchUpdate(updates);
+                      
+                      // Update local state if needed
+                      if (updates[selectedNiche]) {
+                        setLocalPrompts(prev => ({
+                          ...prev!,
+                          ...updates[selectedNiche]
+                        }));
+                      }
+
+                      toast({
+                        description: `Applied changes to ${Object.keys(updates).length} niche(s)`,
+                      });
+                    }}
+                  />
+                </div>
               ) : null
             ) : (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="text-center py-12 text-muted-foreground animate-in">
                 Select a niche to edit prompts
               </div>
             )}

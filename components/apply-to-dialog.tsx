@@ -10,21 +10,36 @@ import { Share2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import type { NichePrompts } from "@/lib/supabase";
 import { FIELD_GROUPS, getUnassignedFields, type FieldGroupKey, type PromptFields } from "@/components/prompts-section";
+import { cn } from "@/lib/utils";
 
 interface ApplyToDialogProps {
   currentValue: string;
   currentField: keyof NichePrompts;
-  niches: string[];
+  niches: Record<string, NichePrompts>;
   onApply: (selectedFields: Array<{ niche: string; field: keyof NichePrompts; value: string }>) => void;
-  loadedNiches?: string[];
+  onOpen?: () => Promise<void>;
+  isLoading?: boolean;
 }
 
-export function ApplyToDialog({ currentValue, currentField, niches, onApply, loadedNiches = [] }: ApplyToDialogProps) {
+export function ApplyToDialog({ currentValue, currentField, niches, onApply, onOpen, isLoading = false }: ApplyToDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [selectedFields, setSelectedFields] = React.useState<Array<{ niche: string; field: keyof NichePrompts; value: string }>>([]);
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    if (open) {
+      console.log('ApplyToDialog opened with:', {
+        currentValue,
+        currentField,
+        availableNiches: Object.keys(niches),
+        nichesData: niches
+      });
+    }
+  }, [currentValue, currentField, niches, open]);
+
   const handleSubmit = () => {
+    console.log('Submitting with selected fields:', selectedFields);
+    
     if (selectedFields.length === 0) {
       toast({
         description: "Please select at least one field to apply the text to",
@@ -33,21 +48,17 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
       return;
     }
 
-    const fieldsWithValue = selectedFields.map(field => ({
-      ...field,
-      value: currentValue
-    }));
-
-    onApply(fieldsWithValue);
+    onApply(selectedFields);
     setOpen(false);
     setSelectedFields([]);
     
     toast({
-      description: `Applied to ${selectedFields.length} field${selectedFields.length === 1 ? '' : 's'}`,
+      description: `Applied text to ${selectedFields.length} field${selectedFields.length === 1 ? '' : 's'}`,
     });
   };
 
   const toggleField = (niche: string, field: keyof NichePrompts) => {
+    console.log('Toggling field:', { niche, field });
     setSelectedFields(prev => {
       const exists = prev.some(item => item.niche === niche && item.field === field);
       if (exists) {
@@ -57,24 +68,45 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
     });
   };
 
+  const availableNiches = Object.entries(niches).filter(
+    ([nicheName, nicheData]) => nicheData["Niche Name"] !== currentField
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button 
+          variant="outline" 
+          size="sm"
+          className={cn(
+            "hover:bg-accent hover:text-accent-foreground",
+            selectedFields.length > 0 && "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
+          disabled={isLoading}
+        >
           <Share2 className="h-4 w-4 mr-2" />
-          Apply to...
+          {isLoading ? 'Loading...' : selectedFields.length > 0 
+            ? `Apply to ${selectedFields.length} field${selectedFields.length === 1 ? '' : 's'}`
+            : 'Apply to...'}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Apply Current Text to Other Fields</DialogTitle>
+          <div className="text-sm text-muted-foreground mt-1">
+            {selectedFields.length > 0 ? (
+              <p>{selectedFields.length} field{selectedFields.length === 1 ? '' : 's'} selected</p>
+            ) : (
+              <p>Available niches: {availableNiches.length}</p>
+            )}
+          </div>
         </DialogHeader>
         <ScrollArea className="h-[60vh] mt-4 pr-4">
           <Accordion type="multiple" className="w-full">
-            {niches.filter(niche => loadedNiches.includes(niche)).map((niche) => (
-              <AccordionItem key={niche} value={niche}>
+            {availableNiches.map(([nicheName, nicheData]) => (
+              <AccordionItem key={nicheName} value={nicheName}>
                 <AccordionTrigger className="hover:no-underline">
-                  {niche}
+                  {nicheData["Niche Name"] || nicheName}
                 </AccordionTrigger>
                 <AccordionContent>
                   <Accordion type="single" collapsible className="w-full">
@@ -85,19 +117,23 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-2 ml-4">
-                            {fields.map((field) => (
+                            {fields.map((field: PromptFields) => (
                               <div key={field} className="flex items-center space-x-2">
                                 <Checkbox
-                                  id={`${niche}-${field}`}
+                                  id={`${nicheName}-${field}`}
                                   checked={selectedFields.some(
-                                    item => item.niche === niche && item.field === field
+                                    item => item.niche === nicheName && item.field === field
                                   )}
-                                  onCheckedChange={() => toggleField(niche, field)}
-                                  disabled={niche === currentField}
+                                  onCheckedChange={() => toggleField(nicheName, field)}
+                                  disabled={nicheName === currentField}
                                 />
                                 <label
-                                  htmlFor={`${niche}-${field}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  htmlFor={`${nicheName}-${field}`}
+                                  className={cn(
+                                    "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+                                    selectedFields.some(item => item.niche === nicheName && item.field === field) && 
+                                    "text-primary font-semibold"
+                                  )}
                                 >
                                   {field}
                                 </label>
@@ -109,7 +145,7 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
                     ))}
                     
                     {(() => {
-                      const allPossibleFields = Object.keys(FIELD_GROUPS).reduce<(keyof NichePrompts)[]>(
+                      const allPossibleFields = Object.keys(FIELD_GROUPS).reduce<PromptFields[]>(
                         (acc, groupKey) => {
                           const group = FIELD_GROUPS[groupKey as Exclude<FieldGroupKey, "Other">];
                           return [...acc, ...group];
@@ -128,18 +164,18 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2 ml-4">
-                              {unassignedFields.map((field) => (
+                              {unassignedFields.map((field: PromptFields) => (
                                 <div key={field} className="flex items-center space-x-2">
                                   <Checkbox
-                                    id={`${niche}-${field}`}
+                                    id={`${nicheName}-${field}`}
                                     checked={selectedFields.some(
-                                      item => item.niche === niche && item.field === field
+                                      item => item.niche === nicheName && item.field === field
                                     )}
-                                    onCheckedChange={() => toggleField(niche, field)}
-                                    disabled={niche === currentField}
+                                    onCheckedChange={() => toggleField(nicheName, field)}
+                                    disabled={nicheName === currentField}
                                   />
                                   <label
-                                    htmlFor={`${niche}-${field}`}
+                                    htmlFor={`${nicheName}-${field}`}
                                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                   >
                                     {field}

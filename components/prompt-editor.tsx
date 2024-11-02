@@ -9,6 +9,8 @@ import { Eye, Code, Copy, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { unescapeString, escapeString } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { ApplyToDialog } from "@/components/apply-to-dialog";
+import type { NichePrompts } from "@/lib/supabase";
 
 interface PromptEditorProps {
   label: string;
@@ -17,6 +19,8 @@ interface PromptEditorProps {
   onChange: (value: string) => void;
   onReset?: () => void;
   hasChanged?: boolean;
+  niches?: Record<string, NichePrompts>;
+  onApply?: (selectedFields: Array<{ niche: string; field: keyof NichePrompts; value: string }>) => void;
 }
 
 export function PromptEditor({ 
@@ -25,7 +29,9 @@ export function PromptEditor({
   originalValue,
   onChange, 
   onReset,
-  hasChanged 
+  hasChanged,
+  niches = {},
+  onApply
 }: PromptEditorProps) {
   const [displayValue, setDisplayValue] = useState("");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -87,22 +93,34 @@ export function PromptEditor({
               {label.replace(/_/g, ' ')}
             </Label>
             {value !== originalValue && (
-              <span className="text-xs px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300">
+              <span className="text-xs px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 animate-in-fast">
                 Modified
               </span>
             )}
           </div>
           <div className="flex gap-2">
+            {onApply && (
+              <div className="animate-in-fast">
+                <ApplyToDialog
+                  currentValue={value}
+                  currentField={label as keyof NichePrompts}
+                  niches={niches}
+                  onApply={onApply}
+                />
+              </div>
+            )}
             {value !== originalValue && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="hover:bg-muted text-muted-foreground hover:text-foreground"
-                title="Reset to original"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+              <div className="animate-in-fast">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  className="hover:bg-muted text-muted-foreground hover:text-foreground"
+                  title="Reset to original"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
             )}
             <Button
               variant="ghost"
