@@ -85,7 +85,7 @@ export function ApplyToDialog({ currentValue, currentField, niches, onApply, loa
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-2 ml-4">
-                            {(fields as Array<keyof NichePrompts>).map((field) => (
+                            {fields.map((field) => (
                               <div key={field} className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`${niche}-${field}`}

@@ -10,14 +10,12 @@ import type { NichePrompts } from "@/lib/supabase";
 import { unescapeString, escapeString } from "@/lib/utils";
 import { PromptEditor } from "@/components/prompt-editor";
 
-// Export these types so they can be used by other components
-export type FieldGroupKey = "Optin No Book" | "Database Reactivation" | "Appointments" | "No Show" | "Inbound" | "Call Later" | "After Hours" | "Other";
+type FieldGroupKey = "Optin No Book" | "Database Reactivation" | "Appointments" | "No Show" | "Inbound" | "Call Later" | "After Hours" | "Other";
 
-// Export this type as well
-export type PromptFields = keyof Omit<NichePrompts, "Niche Name">;
+// Define a type for the field names to ensure they match NichePrompts
+type PromptFields = keyof Omit<NichePrompts, "Niche Name">;
 
-// Export the FIELD_GROUPS constant
-export const FIELD_GROUPS: Record<Exclude<FieldGroupKey, "Other">, PromptFields[]> = {
+const FIELD_GROUPS: Record<Exclude<FieldGroupKey, "Other">, readonly PromptFields[]> = {
   "Optin No Book": [
     "Onb_Identity",
     "Onb_Task",
@@ -214,10 +212,4 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
       </div>
     </div>
   );
-}
-
-// Export the helper function
-export function getUnassignedFields(allFields: Array<keyof NichePrompts>): Array<keyof NichePrompts> {
-  const assignedFields = new Set(Object.values(FIELD_GROUPS).flat());
-  return allFields.filter(field => !assignedFields.has(field as PromptFields) && field !== "Niche Name");
 }
