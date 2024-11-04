@@ -100,7 +100,7 @@ export function PromptEditor({
           </div>
           <div className="flex gap-2">
             {onApply && (
-              <div className="animate-in-fast">
+              <div className="animate-in-fast" title="Apply this text to other fields">
                 <ApplyToDialog
                   currentValue={value}
                   currentField={label as keyof NichePrompts}
@@ -116,7 +116,7 @@ export function PromptEditor({
                   size="sm"
                   onClick={handleReset}
                   className="hover:bg-muted text-muted-foreground hover:text-foreground"
-                  title="Reset to original"
+                  title="Reset to original value"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </Button>
@@ -127,6 +127,7 @@ export function PromptEditor({
               size="sm"
               onClick={() => setIsPreviewMode(!isPreviewMode)}
               className="hover:bg-muted text-muted-foreground hover:text-foreground"
+              title={isPreviewMode ? "Switch to edit mode" : "Preview escaped characters"}
             >
               {isPreviewMode ? <Code className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               <span className="ml-2">{isPreviewMode ? "Edit" : "Preview"}</span>
@@ -136,6 +137,7 @@ export function PromptEditor({
               size="sm"
               onClick={handleCopy}
               className="hover:bg-muted text-muted-foreground hover:text-foreground"
+              title="Copy to clipboard"
             >
               <Copy className="h-4 w-4" />
             </Button>

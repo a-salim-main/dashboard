@@ -227,6 +227,7 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
                 size="sm"
                 onClick={handleResetNiche}
                 className="text-orange-600 hover:text-orange-700"
+                title="Reset all changes in this niche"
               >
                 Reset Niche
               </Button>
@@ -234,35 +235,38 @@ export function PromptsSection({ data, originalData, onUpdate, onReset, modified
                 size="sm"
                 onClick={handleSaveNiche}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
+                title="Save changes for this niche"
               >
                 Save Niche
               </Button>
             </div>
           )}
-          <Select 
-            value={selectedGroup} 
-            onValueChange={(value) => setSelectedGroup(value as FieldGroupKey)}
-          >
-            <SelectTrigger className="w-[200px] bg-card border-border text-foreground">
-              <SelectValue placeholder="Select group" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border">
-              {availableGroupNames.map((group) => (
-                <SelectItem 
-                  key={group} 
-                  value={group}
-                  className="text-foreground hover:bg-muted focus:bg-muted flex justify-between items-center"
-                >
-                  <span>{group}</span>
-                  {groupChanges[group] > 0 && (
-                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 animate-in-fast">
-                      {groupChanges[group]}
-                    </span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div title="Switch between prompt groups">
+            <Select 
+              value={selectedGroup} 
+              onValueChange={(value) => setSelectedGroup(value as FieldGroupKey)}
+            >
+              <SelectTrigger className="w-[200px] bg-card border-border text-foreground">
+                <SelectValue placeholder="Select group" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                {availableGroupNames.map((group) => (
+                  <SelectItem 
+                    key={group} 
+                    value={group}
+                    className="text-foreground hover:bg-muted focus:bg-muted flex justify-between items-center"
+                  >
+                    <span>{group}</span>
+                    {groupChanges[group] > 0 && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 animate-in-fast">
+                        {groupChanges[group]}
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Braces, ChevronRight, Database, Loader2, Search } from "lucide-react";
+import { Braces, ChevronRight, Database, Loader2, Search, Copy, Plus, CopyPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -293,6 +293,21 @@ export default function Home() {
     });
   };
 
+  // Add this function at the top level of the component
+  const showCopyFeedback = (e: React.MouseEvent, text: string) => {
+    const feedback = document.createElement('div');
+    feedback.className = 'copy-feedback';
+    feedback.textContent = 'Copied!';
+    feedback.style.left = `${e.clientX + 10}px`;
+    feedback.style.top = `${e.clientY + 10}px`;
+    document.body.appendChild(feedback);
+    
+    // Remove the element after animation
+    setTimeout(() => {
+      document.body.removeChild(feedback);
+    }, 1000);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/50">
       <div className="container mx-auto px-4 py-8">
@@ -311,40 +326,45 @@ export default function Home() {
               Manage and customize AI agent prompts across different niches
             </p>
             <div className="flex gap-4 mb-6">
-              <SearchDialog 
-                niches={Object.fromEntries(
-                  Object.keys(loadedNiches).map(nicheName => [
-                    nicheName,
-                    getCurrentNicheData(nicheName) || loadedNiches[nicheName]
-                  ])
-                )}
-                onNicheSelect={setSelectedNiche}
-                isLoading={isLoadingPrompts}
-                onOpen={async () => {/* Only loaded niches are searchable */}}
-              />
-              <FindReplaceDialog
-                niches={Object.fromEntries(
-                  Object.keys(loadedNiches).map(nicheName => [
-                    nicheName,
-                    getCurrentNicheData(nicheName) || loadedNiches[nicheName]
-                  ])
-                )}
-                onReplace={(updates) => {
-                  Object.entries(updates).forEach(([nicheName, updatedPrompts]) => {
-                    promptStore.setPendingChanges(nicheName, updatedPrompts);
-                    if (nicheName === selectedNiche) {
-                      setLocalPrompts(updatedPrompts);
-                    }
-                  });
-                }}
-                isLoading={isLoadingPrompts}
-                onOpen={async () => {/* Only loaded niches are available */}}
-              />
+              <div title="Search through all prompts">
+                <SearchDialog 
+                  niches={Object.fromEntries(
+                    Object.keys(loadedNiches).map(nicheName => [
+                      nicheName,
+                      getCurrentNicheData(nicheName) || loadedNiches[nicheName]
+                    ])
+                  )}
+                  onNicheSelect={setSelectedNiche}
+                  isLoading={isLoadingPrompts}
+                  onOpen={async () => {/* Only loaded niches are searchable */}}
+                />
+              </div>
+              <div title="Find and replace text across niches">
+                <FindReplaceDialog
+                  niches={Object.fromEntries(
+                    Object.keys(loadedNiches).map(nicheName => [
+                      nicheName,
+                      getCurrentNicheData(nicheName) || loadedNiches[nicheName]
+                    ])
+                  )}
+                  onReplace={(updates) => {
+                    Object.entries(updates).forEach(([nicheName, updatedPrompts]) => {
+                      promptStore.setPendingChanges(nicheName, updatedPrompts);
+                      if (nicheName === selectedNiche) {
+                        setLocalPrompts(updatedPrompts);
+                      }
+                    });
+                  }}
+                  isLoading={isLoadingPrompts}
+                  onOpen={async () => {/* Only loaded niches are available */}}
+                />
+              </div>
               <Button
                 variant="outline"
                 onClick={handleResetAll}
                 disabled={Object.keys(promptStore.pendingChanges).length === 0}
                 className="text-foreground"
+                title="Reset all changes in all niches"
               >
                 Reset All Changes
               </Button>
@@ -352,6 +372,7 @@ export default function Home() {
                 onClick={handleSaveAll}
                 disabled={Object.keys(promptStore.pendingChanges).length === 0}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
+                title="Save all pending changes"
               >
                 {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save All Changes ({Object.keys(promptStore.pendingChanges).length})
@@ -363,12 +384,32 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <Card className="lg:col-span-3 p-4 bg-card border-border/50">
             <div className="space-y-4">
-              <Input
-                placeholder="Search niches..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-background"
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Search niches..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-background"
+                />
+                <div title="Create a new niche">
+                  <AddNicheDialog
+                    onAdd={async (nicheName) => {
+                      try {
+                        await createNichePrompt(nicheName);
+                        queryClient.invalidateQueries({ queryKey: ['niches'] });
+                        setSelectedNiche(nicheName);
+                        toast({
+                          description: "New niche created successfully",
+                        });
+                      } catch (error) {
+                        throw error;
+                      }
+                    }}
+                    isAdding={isUpdating}
+                    mode="create"
+                  />
+                </div>
+              </div>
 
               <div className="h-[calc(100vh-300px)] overflow-y-auto">
                 {isLoadingNiches ? (
@@ -378,23 +419,65 @@ export default function Home() {
                 ) : filteredNiches.length > 0 ? (
                   <div className="space-y-1">
                     {filteredNiches.map((niche) => (
-                      <Button
-                        key={niche}
-                        variant={selectedNiche === niche ? "secondary" : "ghost"}
-                        className="w-full justify-start relative"
-                        onClick={() => setSelectedNiche(niche)}
-                      >
-                        <ChevronRight className="h-4 w-4 mr-2" />
-                        {niche}
-                        {promptStore.hasChanges(niche) && (
-                          <div className="ml-auto flex items-center gap-1">
-                            <span className="text-xs text-orange-600 dark:text-orange-400">
-                              {promptStore.getModifiedFields(niche).length} changes
-                            </span>
-                            <div className="w-2 h-2 rounded-full bg-orange-500 dark:bg-orange-400" />
-                          </div>
-                        )}
-                      </Button>
+                      <div key={niche} className="group flex items-center gap-2">
+                        <Button
+                          variant={selectedNiche === niche ? "secondary" : "ghost"}
+                          className="w-full justify-start relative"
+                          onClick={() => setSelectedNiche(niche)}
+                          onDoubleClick={async (e) => {
+                            await navigator.clipboard.writeText(niche);
+                            showCopyFeedback(e, niche);
+                            toast({
+                              description: "Niche name copied to clipboard",
+                            });
+                          }}
+                          title="Double click to copy niche name"
+                        >
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                          {niche}
+                          {promptStore.hasChanges(niche) && (
+                            <div className="ml-auto flex items-center gap-1">
+                              <span className="text-xs text-orange-600 dark:text-orange-400">
+                                {promptStore.getModifiedFields(niche).length} changes
+                              </span>
+                              <div className="w-2 h-2 rounded-full bg-orange-500 dark:bg-orange-400" />
+                            </div>
+                          )}
+                        </Button>
+                        <AddNicheDialog
+                          onAdd={async (nicheName) => {
+                            try {
+                              // First fetch the source niche data
+                              const sourceData = await fetchNichePrompts(niche);
+                              if (!sourceData) {
+                                throw new Error("Failed to fetch source niche data");
+                              }
+
+                              // Create new niche
+                              await createNichePrompt(nicheName);
+
+                              // Copy all data from source niche to new niche
+                              await updateNichePrompts(nicheName, {
+                                ...sourceData,
+                                "Niche Name": nicheName
+                              });
+
+                              // Refresh the cache and UI
+                              queryClient.invalidateQueries({ queryKey: ['niches'] });
+                              setSelectedNiche(nicheName);
+                              toast({
+                                description: "Niche duplicated successfully",
+                              });
+                            } catch (error) {
+                              console.error('Duplication error:', error);
+                              throw new Error("Failed to duplicate niche");
+                            }
+                          }}
+                          isAdding={isUpdating}
+                          mode="duplicate"
+                          sourceNiche={{ name: niche }}
+                        />
+                      </div>
                     ))}
                   </div>
                 ) : (
